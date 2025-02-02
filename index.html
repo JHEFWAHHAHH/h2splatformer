@@ -1,0 +1,182 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>h2s_simulator</title>
+    <style>
+        body { text-align: center; background-color: black; display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; }
+        canvas { background-color: lightblue; border-radius: 10px; }
+        #restartButton {
+            display: none;
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: red;
+            color: white;
+            border: none;
+            cursor: pointer;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #livesContainer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="1100" height="600"></canvas>
+    <audio id="gameOverSound" src="furtz22-198542.mp3"></audio>
+    <audio id="jumpSound" src="zvuk-prujyny-43ghy7h.mp3"></audio>
+    <audio id="lifeLostSound" src="uuff-roblox.mp3"></audio>
+    <button id="restartButton" onclick="restartGame()">Restart</button>
+    <div id="livesContainer">❤️❤️</div>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const gameOverSound = document.getElementById("gameOverSound");
+        const jumpSound = document.getElementById("jumpSound");
+        const lifeLostSound = document.getElementById("lifeLostSound");
+        const restartButton = document.getElementById("restartButton");
+        const livesContainer = document.getElementById("livesContainer");
+
+        const sulfurImage = new Image();
+        sulfurImage.src = "b0016.gif"; 
+        
+        const hydrogenImage = new Image();
+        hydrogenImage.src = "hydrogen-basic-structure.webp"; 
+        
+        const h2sImage = new Image();
+        h2sImage.src = "H2S.jpg";
+
+        let sulfurAtom = { x: 120, y: 300, vy: 0, jumping: false, hydrogens: 0 };
+        let obstacles = [];
+        let gravity = 0.5;
+        let gameOver = false;
+        let h2sObject = null;
+        let lives = 2;
+        let firstLifeLost = false;
+
+        function drawRoundedImage(img, x, y, size) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(img, x, y, size, size);
+            ctx.restore();
+        }
+
+        function drawSulfur() {
+            drawRoundedImage(sulfurImage, sulfurAtom.x - 30, sulfurAtom.y - 30, 60);
+            if (sulfurAtom.hydrogens >= 1) {
+                drawRoundedImage(hydrogenImage, sulfurAtom.x - 40, sulfurAtom.y - 40, 40);
+            }
+            if (sulfurAtom.hydrogens === 2) {
+                drawRoundedImage(hydrogenImage, sulfurAtom.x + 30, sulfurAtom.y - 40, 40);
+            }
+        }
+
+        function drawObstacle(obstacle) {
+            drawRoundedImage(hydrogenImage, obstacle.x, obstacle.y, 50);
+        }
+
+        function drawH2S() {
+            if (h2sObject) {
+                drawRoundedImage(h2sImage, h2sObject.x, h2sObject.y, 80);
+            }
+        }
+
+        function updateGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (gameOver) {
+                drawH2S();
+                return;
+            }
+            
+            sulfurAtom.y += sulfurAtom.vy;
+            sulfurAtom.vy += gravity;
+            if (sulfurAtom.y > 300) {
+                sulfurAtom.y = 300;
+                sulfurAtom.jumping = false;
+            }
+            drawSulfur();
+            
+            obstacles.forEach((obstacle, index) => {
+                obstacle.x -= 5;
+                drawObstacle(obstacle);
+                if (obstacle.x < -50) {
+                    obstacles.splice(index, 1);
+                }
+                if (sulfurAtom.x < obstacle.x + 50 && sulfurAtom.x + 30 > obstacle.x && sulfurAtom.y + 30 > obstacle.y) {
+                    obstacles.splice(index, 1);
+                    sulfurAtom.hydrogens++;
+                    lives--;
+                    if (!firstLifeLost) {
+                        lifeLostSound.play();
+                        firstLifeLost = true;
+                    }
+                    updateLives();
+                    if (sulfurAtom.hydrogens >= 2) {
+                        gameOver = true;
+                        gameOverSound.play();
+                        h2sObject = { x: sulfurAtom.x - 30, y: sulfurAtom.y - 30 };
+                        setTimeout(() => {
+                            restartButton.style.display = "block";
+                        }, 700);
+                    }
+                }
+            });
+            requestAnimationFrame(updateGame);
+        }
+
+        function updateLives() {
+            livesContainer.innerHTML = "❤️".repeat(lives);
+        }
+        
+        function jump() {
+            if (!sulfurAtom.jumping) {
+                sulfurAtom.vy = -12;
+                sulfurAtom.jumping = true;
+                jumpSound.play();
+            }
+        }
+
+        document.addEventListener("keydown", (event) => {
+            if (event.code === "Space" || event.key === "ArrowUp") {
+                jump();
+            }
+        });
+        
+        canvas.addEventListener("click", jump);
+        canvas.addEventListener("touchstart", (event) => {
+            event.preventDefault();
+            jump();
+        });
+
+        setInterval(() => {
+            if (!gameOver && obstacles.length < 2) {
+                obstacles.push({ x: canvas.width, y: 320 - Math.random() * 50 });
+            }
+        }, 2000);
+        
+        function restartGame() {
+            gameOver = false;
+            sulfurAtom = { x: 120, y: 300, vy: 0, jumping: false, hydrogens: 0 };
+            obstacles = [];
+            h2sObject = null;
+            lives = 2;
+            firstLifeLost = false;
+            updateLives();
+            restartButton.style.display = "none";
+            updateGame();
+        }
+        
+        updateGame();
+    </script>
+</body>
+</html>
